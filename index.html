@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOMBITO - Sistema de Autenticación</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 100%;
+            padding: 50px 40px;
+        }
+
+        .logo {
+            text-align: center;
+            font-size: 48px;
+            font-weight: bold;
+            color: #E31E24;
+            margin-bottom: 10px;
+            letter-spacing: 4px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        /* TABS */
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 30px;
+            background: #f8f9fa;
+            padding: 5px;
+            border-radius: 10px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            color: #666;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            background: #E31E24;
+            color: white;
+        }
+
+        .tab:hover:not(.active) {
+            background: #e0e0e0;
+        }
+
+        /* FORMS */
+        .form-section {
+            display: none;
+        }
+
+        .form-section.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #E31E24;
+            box-shadow: 0 0 0 3px rgba(227, 30, 36, 0.1);
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 5px;
+            color: #999;
+            font-size: 12px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary {
+            background: #E31E24;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #c41a1f;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(227, 30, 36, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* ALERTS */
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+            animation: slideIn 0.3s;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left: 4px solid #17a2b8;
+        }
+
+        /* PASSWORD STRENGTH */
+        .password-strength {
+            height: 4px;
+            border-radius: 2px;
+            margin-top: 8px;
+            background: #e0e0e0;
+            overflow: hidden;
+        }
+
+        .password-strength-bar {
+            height: 100%;
+            width: 0;
+            transition: all 0.3s;
+        }
+
+        .password-strength-bar.weak {
+            width: 33%;
+            background: #dc3545;
+        }
+
+        .password-strength-bar.medium {
+            width: 66%;
+            background: #ffc107;
+        }
+
+        .password-strength-bar.strong {
+            width: 100%;
+            background: #28a745;
+        }
+
+        .password-requirements {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .password-requirements ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .password-requirements li {
+            padding: 3px 0;
+        }
+
+        .password-requirements li.valid {
+            color: #28a745;
+        }
+
+        .password-requirements li.valid::before {
+            content: "✓ ";
+        }
+
+        .password-requirements li.invalid::before {
+            content: "✗ ";
+            color: #dc3545;
+        }
+
+        /* INFO BOX */
+        .info-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .info-box strong {
+            color: #333;
+        }
+
+        /* LOADING */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #E31E24;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 600px) {
+            .container {
+                padding: 30px 20px;
+            }
+
+            .logo {
+                font-size: 36px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">TOMBITO</div>
+        <div class="subtitle">Sistema de Gestión - Autenticación</div>
+
+        <!-- ALERTS -->
+        <div id="alertSuccess" class="alert alert-success"></div>
+        <div id="alertDanger" class="alert alert-danger"></div>
+        <div id="alertInfo" class="alert alert-info"></div>
+
+        <!-- TABS -->
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('login')">Ingresar</button>
+            <button class="tab" onclick="showTab('register')">Registrarse</button>
+            <button class="tab" onclick="showTab('recover')">Recuperar</button>
+        </div>
+
+        <!-- LOGIN FORM -->
+        <div id="loginSection" class="form-section active">
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>Usuario o Email</label>
+                    <input type="text" id="loginUsername" placeholder="Tu usuario" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Contraseña</label>
+                    <input type="password" id="loginPassword" placeholder="Tu contraseña" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary">INGRESAR</button>
+            </form>
+
+            <div class="info-box" style="margin-top: 20px;">
+                <strong>¿Nuevo usuario?</strong> Regístrate en la pestaña "Registrarse"<br>
+                <strong>¿Olvidaste tu contraseña?</strong> Ve a "Recuperar"
+            </div>
+        </div>
+
+        <!-- REGISTER FORM -->
+        <div id="registerSection" class="form-section">
+            <form id="registerForm">
+                <div class="form-group">
+                    <label>Nombre Completo</label>
+                    <input type="text" id="registerName" placeholder="Ej: Juan Pérez" required>
+                    <small>Aparecerá en tu perfil y en las ventas</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Usuario</label>
+                    <input type="text" id="registerUsername" placeholder="Ej: jperez" required minlength="4">
+                    <small>Mínimo 4 caracteres, sin espacios</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="registerEmail" placeholder="tu@email.com" required>
+                    <small>Para recuperar contraseña</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Contraseña</label>
+                    <input type="password" id="registerPassword" placeholder="Mínimo 6 caracteres" required minlength="6">
+                    <div class="password-strength">
+                        <div id="passwordStrengthBar" class="password-strength-bar"></div>
+                    </div>
+                    <div class="password-requirements">
+                        <ul id="passwordRequirements">
+                            <li class="invalid">Mínimo 6 caracteres</li>
+                            <li class="invalid">Al menos una letra mayúscula</li>
+                            <li class="invalid">Al menos un número</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Confirmar Contraseña</label>
+                    <input type="password" id="registerPasswordConfirm" placeholder="Repite tu contraseña" required>
+                </div>
+
+                <div class="form-group">
+                    <label>DNI (Opcional)</label>
+                    <input type="text" id="registerDNI" placeholder="12345678" maxlength="8">
+                    <small>Para identificación adicional</small>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="registerBtn">REGISTRARSE</button>
+            </form>
+        </div>
+
+        <!-- RECOVER PASSWORD FORM -->
+        <div id="recoverSection" class="form-section">
+            <div class="info-box">
+                <strong>💡 Recuperación de Contraseña:</strong><br>
+                Ingresa tu usuario o email. El administrador recibirá tu solicitud y te asignará una nueva contraseña.
+            </div>
+
+            <form id="recoverForm">
+                <div class="form-group">
+                    <label>Usuario o Email</label>
+                    <input type="text" id="recoverIdentifier" placeholder="Tu usuario o email" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Motivo de recuperación</label>
+                    <select id="recoverReason" required>
+                        <option value="">Selecciona una opción</option>
+                        <option value="forgot">Olvidé mi contraseña</option>
+                        <option value="locked">Mi cuenta está bloqueada</option>
+                        <option value="change">Quiero cambiar mi contraseña</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary">SOLICITAR RECUPERACIÓN</button>
+            </form>
+
+            <div class="info-box" style="margin-top: 20px;">
+                <strong>📞 Contacto directo:</strong><br>
+                También puedes contactar al administrador directamente para recuperar tu acceso.
+            </div>
+        </div>
+
+        <!-- LOADING -->
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <div>Procesando...</div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // CONFIGURACIÓN - PEGA TU URL AQUÍ
+        // ============================================
+        const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbzTnp5Ag1s1TELgmlCBvWDkBn5uM4L49CN_EntXlzv-sOkObIz4l6d-K-5sL-ej661_/exec';
+
+        // ============================================
+        // TAB NAVIGATION
+        // ============================================
+        function showTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            document.querySelectorAll('.form-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.getElementById(tabName + 'Section').classList.add('active');
+
+            hideAllAlerts();
+        }
+
+        // ============================================
+        // ALERTS
+        // ============================================
+        function showAlert(type, message) {
+            hideAllAlerts();
+            const alert = document.getElementById('alert' + type.charAt(0).toUpperCase() + type.slice(1));
+            alert.textContent = message;
+            alert.classList.add('show');
+            
+            setTimeout(() => {
+                alert.classList.remove('show');
+            }, 5000);
+        }
+
+        function hideAllAlerts() {
+            document.querySelectorAll('.alert').forEach(alert => {
+                alert.classList.remove('show');
+            });
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').classList.toggle('show', show);
+        }
+
+        // ============================================
+        // PASSWORD STRENGTH
+        // ============================================
+        document.getElementById('registerPassword').addEventListener('input', function() {
+            const password = this.value;
+            const strengthBar = document.getElementById('passwordStrengthBar');
+            const requirements = document.getElementById('passwordRequirements').children;
+
+            const hasLength = password.length >= 6;
+            const hasUpperCase = /[A-Z]/.test(password);
+            const hasNumber = /[0-9]/.test(password);
+
+            requirements[0].className = hasLength ? 'valid' : 'invalid';
+            requirements[1].className = hasUpperCase ? 'valid' : 'invalid';
+            requirements[2].className = hasNumber ? 'valid' : 'invalid';
+
+            let strength = 0;
+            if (hasLength) strength++;
+            if (hasUpperCase) strength++;
+            if (hasNumber) strength++;
+
+            strengthBar.className = 'password-strength-bar';
+            if (strength === 1) strengthBar.classList.add('weak');
+            else if (strength === 2) strengthBar.classList.add('medium');
+            else if (strength === 3) strengthBar.classList.add('strong');
+        });
+
+        // ============================================
+        // LOGIN FORM
+        // ============================================
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+
+            showLoading(true);
+
+            try {
+                const response = await fetch(`${SHEET_API_URL}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`);
+                const data = await response.json();
+
+                showLoading(false);
+
+                if (data.success) {
+                    showAlert('success', '✅ Login exitoso! Redirigiendo...');
+                    
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    localStorage.setItem('tombito_session', data.token || 'active');
+                    
+                    setTimeout(() => {
+                        if (data.user.fullAccess) {
+                            window.location.href = 'tombito_dashboard_admin.html';
+                        } else {
+                            window.location.href = 'tombito_dashboard_cliente.html';
+                        }
+                    }, 1500);
+                } else {
+                    showAlert('danger', '❌ ' + (data.message || 'Usuario o contraseña incorrectos'));
+                }
+            } catch (error) {
+                showLoading(false);
+                showAlert('danger', '❌ Error de conexión. Verifica tu configuración.');
+                console.error('Error:', error);
+            }
+        });
+
+        // ============================================
+        // REGISTER FORM
+        // ============================================
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const name = document.getElementById('registerName').value.trim();
+            const username = document.getElementById('registerUsername').value.trim().toLowerCase();
+            const email = document.getElementById('registerEmail').value.trim();
+            const password = document.getElementById('registerPassword').value;
+            const passwordConfirm = document.getElementById('registerPasswordConfirm').value;
+            const dni = document.getElementById('registerDNI').value.trim();
+
+            if (username.includes(' ')) {
+                showAlert('danger', '❌ El usuario no puede contener espacios');
+                return;
+            }
+
+            if (password !== passwordConfirm) {
+                showAlert('danger', '❌ Las contraseñas no coinciden');
+                return;
+            }
+
+            if (password.length < 6) {
+                showAlert('danger', '❌ La contraseña debe tener mínimo 6 caracteres');
+                return;
+            }
+
+            showLoading(true);
+
+            try {
+                const url = `${SHEET_API_URL}?action=register&name=${encodeURIComponent(name)}&username=${encodeURIComponent(username)}&email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}&dni=${encodeURIComponent(dni)}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+
+                showLoading(false);
+
+                if (data.success) {
+                    showAlert('success', '✅ ¡Registro exitoso! Ya puedes iniciar sesión.');
+                    
+                    document.getElementById('registerForm').reset();
+                    document.getElementById('passwordStrengthBar').className = 'password-strength-bar';
+                    
+                    setTimeout(() => {
+                        document.querySelector('.tab').click();
+                    }, 2000);
+                } else {
+                    showAlert('danger', '❌ ' + (data.message || 'Error al registrar usuario'));
+                }
+            } catch (error) {
+                showLoading(false);
+                showAlert('danger', '❌ Error de conexión. Verifica tu configuración.');
+                console.error('Error:', error);
+            }
+        });
+
+        // ============================================
+        // RECOVER PASSWORD FORM
+        // ============================================
+        document.getElementById('recoverForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const identifier = document.getElementById('recoverIdentifier').value.trim();
+            const reason = document.getElementById('recoverReason').value;
+
+            showLoading(true);
+
+            try {
+                const url = `${SHEET_API_URL}?action=recoverPassword&identifier=${encodeURIComponent(identifier)}&reason=${encodeURIComponent(reason)}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+
+                showLoading(false);
+
+                if (data.success) {
+                    showAlert('success', '✅ ' + data.message);
+                    document.getElementById('recoverForm').reset();
+                } else {
+                    showAlert('danger', '❌ ' + (data.message || 'Error al procesar solicitud'));
+                }
+            } catch (error) {
+                showLoading(false);
+                showAlert('danger', '❌ Error de conexión. Verifica tu configuración.');
+                console.error('Error:', error);
+            }
+        });
+
+        // ============================================
+        // INIT
+        // ============================================
+        window.addEventListener('load', function() {
+            if (SHEET_API_URL === 'https://script.google.com/macros/s/AKfycbzTnp5Ag1s1TELgmlCBvWDkBn5uM4L49CN_EntXlzv-sOkObIz4l6d-K-5sL-ej661_/exec') {
+                showAlert('info', '⚠️ Configura SHEET_API_URL en el código con tu URL de Google Apps Script');
+            }
+            
+            // Si ya está logueado, redirigir
+            const user = localStorage.getItem('user');
+            if (user) {
+                const userData = JSON.parse(user);
+                if (userData.fullAccess) {
+                    window.location.href = 'tombito_dashboard_admin.html';
+                } else {
+                    window.location.href = 'tombito_dashboard_cliente.html';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
