@@ -1,27 +1,38 @@
 // ============================================
-// TOMBITO - Auth Utilities
-// Funciones auxiliares para autenticación
+// TOMBITO - Auth Utilities FINAL
 // ============================================
 
-// Clase de utilidades de autenticación
 class AuthUtils {
-    
+
     /**
-     * Obtener el usuario actual completo
+     * Esperar a que Firebase resuelva el estado de autenticación
+     * CRÍTICO: auth.currentUser puede ser null al cargar la página
+     */
+    static waitForAuth() {
+        return new Promise((resolve) => {
+            const unsubscribe = auth.onAuthStateChanged((user) => {
+                unsubscribe(); // Dejar de escuchar después del primer resultado
+                resolve(user);
+            });
+        });
+    }
+
+    /**
+     * Obtener el usuario actual completo desde Firestore
      */
     static async getCurrentUser() {
-        const user = auth.currentUser;
-        
+        const user = await this.waitForAuth();
+
         if (!user) {
             throw new Error('No hay usuario autenticado');
         }
-        
+
         const userDoc = await db.collection('users').doc(user.uid).get();
-        
+
         if (!userDoc.exists) {
-            throw new Error('Datos de usuario no encontrados');
+            throw new Error('Datos de usuario no encontrados en Firestore');
         }
-        
+
         return {
             uid: user.uid,
             email: user.email,
@@ -29,35 +40,184 @@ class AuthUtils {
             ...userDoc.data()
         };
     }
-    
+
     /**
-     * Verificar si el usuario actual es admin
+     * Validar sesión y retornar datos del usuario
+     */
+    static async validateSession() {
+        try {
+            const user = await this.waitForAuth();
+
+            if (!user) {
+                console.log('No hay sesión activa → redirigiendo a login');
+                window.location.href = 'login.html';
+                return null;
+            }
+
+            console.log('✅ Sesión activa. UID:', user.uid);
+
+            const userDoc = await db.collection('users').doc(user.uid).get();
+
+            if (!userDoc.exists) {
+                console.error('❌ No existe documento en Firestore para UID:', user.uid);
+                await auth.signOut();
+                window.location.href = 'login.html';
+                return null;
+            }
+
+            const userData = { uid: user.uid, email: user.email, ...userDoc.data() };
+
+            if (!userData.active) {
+                await auth.signOut();
+                alert('Tu cuenta ha sido desactivada. Contacta al administrador.');
+                window.location.href = 'login.html';
+                return null;
+            }
+
+            console.log('✅ Usuario validado. Rol:', userData.role);
+            return userData;
+
+        } catch (error) {
+            console.error('Error en validateSession:', error);
+            window.location.href = 'login.html';
+            return null;
+        }
+    }
+
+    /**
+     * Proteger ruta según rol requerido
+     */
+    static async protectRoute(requiredRole = null) {
+        const userData = await this.validateSession();
+
+        if (!userData) return null;
+
+        if (requiredRole && userData.role !== requiredRole) {
+            console.warn(`Rol incorrecto. Tiene: ${userData.role}, Necesita: ${requiredRole}`);
+
+            if (userData.role === 'admin') {
+                window.location.href = 'admin-dashboard.html';
+            } else {
+                window.location.href = 'client-dashboard.html';
+            }
+            return null;
+        }
+
+        return userData;
+    }
+
+    /**
+     * Verificar si es admin
      */
     static async isAdmin() {
         try {
             const userData = await this.getCurrentUser();
             return userData.role === 'admin';
         } catch (error) {
-            console.error('Error al verificar rol:', error);
             return false;
         }
     }
-    
+
     /**
-     * Verificar si el usuario actual es cliente
+     * Obtener ventas del cliente
      */
-    static async isClient() {
+    static async getClientSales(clientId = null) {
         try {
-            const userData = await this.getCurrentUser();
-            return userData.role === 'client';
+            const user = await this.waitForAuth();
+            const userId = clientId || user.uid;
+
+            const snapshot = await db.collection('ventas')
+                .where('clienteId', '==', userId)
+                .orderBy('fecha', 'desc')
+                .get();
+
+            const sales = [];
+            snapshot.forEach(doc => {
+                sales.push({ id: doc.id, ...doc.data() });
+            });
+
+            return sales;
         } catch (error) {
-            console.error('Error al verificar rol:', error);
-            return false;
+            console.error('Error al obtener ventas:', error);
+            return [];
         }
     }
-    
+
     /**
-     * Actualizar perfil del usuario
+     * Listar todos los clientes (solo admin)
+     */
+    static async listClients() {
+        try {
+            const snapshot = await db.collection('users')
+                .where('role', '==', 'client')
+                .get();
+
+            const clients = [];
+            snapshot.forEach(doc => {
+                clients.push({ uid: doc.id, ...doc.data() });
+            });
+            return clients;
+        } catch (error) {
+            console.error('Error al listar clientes:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Activar/desactivar usuario
+     */
+    static async toggleUserStatus(userId, active) {
+        try {
+            await db.collection('users').doc(userId).update({
+                active: active,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            return { success: true };
+        } catch (error) {
+            console.error('Error al cambiar estado:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Cambiar rol de usuario
+     */
+    static async changeUserRole(userId, newRole) {
+        try {
+            await db.collection('users').doc(userId).update({
+                role: newRole,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            return { success: true };
+        } catch (error) {
+            console.error('Error al cambiar rol:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Cambiar contraseña
+     */
+    static async changePassword(currentPassword, newPassword) {
+        try {
+            const user = auth.currentUser;
+            const credential = firebase.auth.EmailAuthProvider.credential(
+                user.email,
+                currentPassword
+            );
+            await user.reauthenticateWithCredential(credential);
+            await user.updatePassword(newPassword);
+            return { success: true };
+        } catch (error) {
+            let message = 'Error al cambiar contraseña';
+            if (error.code === 'auth/wrong-password') message = 'Contraseña actual incorrecta';
+            if (error.code === 'auth/weak-password') message = 'La nueva contraseña es muy débil';
+            throw new Error(message);
+        }
+    }
+
+    /**
+     * Actualizar perfil
      */
     static async updateProfile(userId, data) {
         try {
@@ -65,237 +225,13 @@ class AuthUtils {
                 ...data,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-            return { success: true, message: 'Perfil actualizado' };
+            return { success: true };
         } catch (error) {
             console.error('Error al actualizar perfil:', error);
             throw error;
         }
     }
-    
-    /**
-     * Cambiar contraseña del usuario actual
-     */
-    static async changePassword(currentPassword, newPassword) {
-        try {
-            const user = auth.currentUser;
-            
-            // Re-autenticar usuario
-            const credential = firebase.auth.EmailAuthProvider.credential(
-                user.email,
-                currentPassword
-            );
-            
-            await user.reauthenticateWithCredential(credential);
-            
-            // Cambiar contraseña
-            await user.updatePassword(newPassword);
-            
-            return { success: true, message: 'Contraseña actualizada' };
-        } catch (error) {
-            console.error('Error al cambiar contraseña:', error);
-            
-            let message = 'Error al cambiar contraseña';
-            
-            if (error.code === 'auth/wrong-password') {
-                message = 'Contraseña actual incorrecta';
-            } else if (error.code === 'auth/weak-password') {
-                message = 'La nueva contraseña es muy débil';
-            }
-            
-            throw new Error(message);
-        }
-    }
-    
-    /**
-     * Obtener datos de un cliente específico
-     */
-    static async getClientData(clientId) {
-        try {
-            const userDoc = await db.collection('users').doc(clientId).get();
-            
-            if (!userDoc.exists) {
-                throw new Error('Cliente no encontrado');
-            }
-            
-            const userData = userDoc.data();
-            
-            if (userData.role !== 'client') {
-                throw new Error('El usuario no es un cliente');
-            }
-            
-            return {
-                uid: clientId,
-                ...userData
-            };
-        } catch (error) {
-            console.error('Error al obtener datos del cliente:', error);
-            throw error;
-        }
-    }
-    
-    /**
-     * Listar todos los clientes (solo para admin)
-     */
-    static async listClients() {
-        try {
-            const isUserAdmin = await this.isAdmin();
-            
-            if (!isUserAdmin) {
-                throw new Error('Acceso denegado: solo administradores');
-            }
-            
-            const snapshot = await db.collection('users')
-                .where('role', '==', 'client')
-                .orderBy('createdAt', 'desc')
-                .get();
-            
-            const clients = [];
-            snapshot.forEach(doc => {
-                clients.push({
-                    uid: doc.id,
-                    ...doc.data()
-                });
-            });
-            
-            return clients;
-        } catch (error) {
-            console.error('Error al listar clientes:', error);
-            throw error;
-        }
-    }
-    
-    /**
-     * Activar o desactivar usuario (solo para admin)
-     */
-    static async toggleUserStatus(userId, active) {
-        try {
-            const isUserAdmin = await this.isAdmin();
-            
-            if (!isUserAdmin) {
-                throw new Error('Acceso denegado: solo administradores');
-            }
-            
-            await db.collection('users').doc(userId).update({
-                active: active,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            
-            return { 
-                success: true, 
-                message: active ? 'Usuario activado' : 'Usuario desactivado' 
-            };
-        } catch (error) {
-            console.error('Error al cambiar estado del usuario:', error);
-            throw error;
-        }
-    }
-    
-    /**
-     * Cambiar rol de usuario (solo para admin)
-     */
-    static async changeUserRole(userId, newRole) {
-        try {
-            const isUserAdmin = await this.isAdmin();
-            
-            if (!isUserAdmin) {
-                throw new Error('Acceso denegado: solo administradores');
-            }
-            
-            if (!['admin', 'client'].includes(newRole)) {
-                throw new Error('Rol no válido');
-            }
-            
-            await db.collection('users').doc(userId).update({
-                role: newRole,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            
-            return { success: true, message: 'Rol actualizado' };
-        } catch (error) {
-            console.error('Error al cambiar rol:', error);
-            throw error;
-        }
-    }
-    
-    /**
-     * Obtener ventas del cliente actual
-     */
-    static async getClientSales(clientId = null) {
-        try {
-            const userId = clientId || auth.currentUser.uid;
-            
-            const snapshot = await db.collection('ventas')
-                .where('clienteId', '==', userId)
-                .orderBy('fecha', 'desc')
-                .get();
-            
-            const sales = [];
-            snapshot.forEach(doc => {
-                sales.push({
-                    id: doc.id,
-                    ...doc.data()
-                });
-            });
-            
-            return sales;
-        } catch (error) {
-            console.error('Error al obtener ventas:', error);
-            throw error;
-        }
-    }
-    
-    /**
-     * Validar sesión y redireccionar según rol
-     */
-    static async validateSession() {
-        const user = auth.currentUser;
-        
-        if (!user) {
-            window.location.href = 'login.html';
-            return;
-        }
-        
-        try {
-            const userData = await this.getCurrentUser();
-            
-            // Verificar si el usuario está activo
-            if (!userData.active) {
-                await auth.signOut();
-                alert('Tu cuenta ha sido desactivada. Contacta al administrador.');
-                window.location.href = 'login.html';
-                return;
-            }
-            
-            return userData;
-        } catch (error) {
-            console.error('Error al validar sesión:', error);
-            await auth.signOut();
-            window.location.href = 'login.html';
-        }
-    }
-    
-    /**
-     * Proteger ruta - redirigir si no está autenticado
-     */
-    static async protectRoute(requiredRole = null) {
-        const userData = await this.validateSession();
-        
-        if (requiredRole && userData.role !== requiredRole) {
-            alert('No tienes permisos para acceder a esta página');
-            
-            // Redirigir según el rol del usuario
-            if (userData.role === 'admin') {
-                window.location.href = 'admin-dashboard.html';
-            } else {
-                window.location.href = 'client-dashboard.html';
-            }
-            
-            return null;
-        }
-        
-        return userData;
-    }
-    
+
     /**
      * Cerrar sesión
      */
@@ -303,22 +239,18 @@ class AuthUtils {
         try {
             await auth.signOut();
             sessionStorage.clear();
-            localStorage.clear();
             window.location.href = 'login.html';
         } catch (error) {
             console.error('Error al cerrar sesión:', error);
-            alert('Error al cerrar sesión');
         }
     }
-    
+
     /**
-     * Formatear timestamp de Firestore a fecha legible
+     * Formatear fecha de Firestore
      */
     static formatFirestoreDate(timestamp) {
         if (!timestamp) return 'N/A';
-        
         const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-        
         return date.toLocaleDateString('es-PE', {
             day: '2-digit',
             month: '2-digit',
@@ -329,7 +261,5 @@ class AuthUtils {
     }
 }
 
-// Exportar para uso global
 window.AuthUtils = AuthUtils;
-
-console.log('Auth Utilities cargadas correctamente');
+console.log('✅ Auth Utilities TOMBITO cargadas');
