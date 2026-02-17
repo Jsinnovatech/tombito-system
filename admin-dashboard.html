@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOMBITO - Panel Administrador</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --primary: #E31E24;
+            --secondary: #FFD600;
+            --dark: #1a1a1a;
+            --light: #f5f5f5;
+            --success: #4CAF50;
+            --warning: #FF9800;
+            --danger: #f44336;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
+            overflow-x: hidden;
+        }
+
+        /* LOADER */
+        .page-loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .page-loader.hidden {
+            display: none;
+        }
+
+        .loader-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 280px;
+            height: 100vh;
+            background: linear-gradient(180deg, var(--primary) 0%, #b01419 100%);
+            color: white;
+            overflow-y: auto;
+            z-index: 1000;
+            transition: all 0.3s;
+        }
+
+        .sidebar-header {
+            padding: 30px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .sidebar-header h2 {
+            font-size: 32px;
+            letter-spacing: 3px;
+        }
+
+        .sidebar-header p {
+            opacity: 0.9;
+            margin-top: 5px;
+            font-size: 13px;
+        }
+
+        .user-info {
+            padding: 20px 30px;
+            background: rgba(0,0,0,0.2);
+            margin: 20px 0;
+        }
+
+        .user-info .user-name {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+
+        .user-info .user-role {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .user-info .user-email {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 3px;
+        }
+
+        .nav-menu {
+            list-style: none;
+            padding: 20px 0;
+        }
+
+        .nav-item {
+            padding: 15px 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 15px;
+        }
+
+        .nav-item:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .nav-item.active {
+            background: rgba(255,255,255,0.2);
+            border-left: 4px solid var(--secondary);
+        }
+
+        .logout-btn {
+            margin: 30px;
+            width: calc(100% - 60px);
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* MAIN CONTENT */
+        .main-content {
+            margin-left: 280px;
+            padding: 40px;
+            min-height: 100vh;
+        }
+
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .section-header {
+            margin-bottom: 30px;
+        }
+
+        .section-header h1 {
+            color: #333;
+            font-size: 32px;
+        }
+
+        /* STATS CARDS */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            border-left: 4px solid var(--primary);
+        }
+
+        .stat-card h3 {
+            color: #666;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .stat-card .value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        /* TABLES */
+        .table-container {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            overflow-x: auto;
+            margin-bottom: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #f8f9fa;
+        }
+
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #666;
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+            color: #333;
+        }
+
+        tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        /* BADGES */
+        .badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-danger { background: #f8d7da; color: #721c24; }
+        .badge-info { background: #d1ecf1; color: #0c5460; }
+
+        /* BUTTONS */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 10px rgba(0,0,0,0.2);
+        }
+
+        /* ALERTS */
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+            animation: slideDown 0.3s;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+
+        /* FORMS */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 0;
+                display: none;
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- LOADER -->
+    <div class="page-loader" id="pageLoader">
+        <div class="loader-spinner"></div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h2>TOMBITO</h2>
+            <p>Panel de Administración</p>
+        </div>
+
+        <div class="user-info">
+            <div class="user-name" id="userName">Cargando...</div>
+            <div class="user-role">ADMINISTRADOR</div>
+            <div class="user-email" id="userEmail">...</div>
+        </div>
+
+        <ul class="nav-menu">
+            <li class="nav-item active" data-section="dashboard">
+                📊 Dashboard
+            </li>
+            <li class="nav-item" data-section="ventas">
+                💰 Ventas
+            </li>
+            <li class="nav-item" data-section="productos">
+                📦 Productos
+            </li>
+            <li class="nav-item" data-section="clientes">
+                👥 Clientes
+            </li>
+            <li class="nav-item" data-section="usuarios">
+                🔐 Usuarios
+            </li>
+            <li class="nav-item" data-section="perfil">
+                ⚙️ Mi Perfil
+            </li>
+        </ul>
+
+        <button class="logout-btn" id="logoutBtn">
+            🚪 Cerrar Sesión
+        </button>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+        <!-- DASHBOARD SECTION -->
+        <div id="dashboard-section" class="content-section active">
+            <div class="section-header">
+                <h1>📊 Dashboard General</h1>
+            </div>
+
+            <div id="alertSuccess" class="alert alert-success"></div>
+            <div id="alertDanger" class="alert alert-danger"></div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Ventas Totales</h3>
+                    <div class="value" id="totalVentas">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Productos</h3>
+                    <div class="value" id="totalProductos">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Clientes</h3>
+                    <div class="value" id="totalClientes">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Usuarios</h3>
+                    <div class="value" id="totalUsuarios">0</div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <h3>📈 Ventas Recientes</h3>
+                <table id="recentSalesTable">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>Producto</th>
+                            <th>Cantidad</th>
+                            <th>Total</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recentSalesBody">
+                        <tr>
+                            <td colspan="6" style="text-align: center;">Cargando datos...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- VENTAS SECTION -->
+        <div id="ventas-section" class="content-section">
+            <div class="section-header">
+                <h1>💰 Gestión de Ventas</h1>
+            </div>
+            <p>Módulo de ventas en desarrollo...</p>
+        </div>
+
+        <!-- PRODUCTOS SECTION -->
+        <div id="productos-section" class="content-section">
+            <div class="section-header">
+                <h1>📦 Gestión de Productos</h1>
+            </div>
+            <p>Módulo de productos en desarrollo...</p>
+        </div>
+
+        <!-- CLIENTES SECTION -->
+        <div id="clientes-section" class="content-section">
+            <div class="section-header">
+                <h1>👥 Gestión de Clientes</h1>
+            </div>
+
+            <div class="table-container">
+                <h3>Lista de Clientes</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Email</th>
+                            <th>Teléfono</th>
+                            <th>Total Compras</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientesTableBody">
+                        <tr>
+                            <td colspan="6" style="text-align: center;">Cargando clientes...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- USUARIOS SECTION -->
+        <div id="usuarios-section" class="content-section">
+            <div class="section-header">
+                <h1>🔐 Gestión de Usuarios</h1>
+            </div>
+
+            <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+                <div class="stat-card">
+                    <h3>Total Usuarios</h3>
+                    <div class="value" id="statsUsuariosTotal">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Admins</h3>
+                    <div class="value" id="statsUsuariosAdmin">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Clientes</h3>
+                    <div class="value" id="statsUsuariosClientes">0</div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <h3>Lista de Usuarios del Sistema</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Email</th>
+                            <th>Rol</th>
+                            <th>Estado</th>
+                            <th>Fecha Registro</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usuariosTableBody">
+                        <tr>
+                            <td colspan="6" style="text-align: center;">Cargando usuarios...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- PERFIL SECTION -->
+        <div id="perfil-section" class="content-section">
+            <div class="section-header">
+                <h1>⚙️ Mi Perfil</h1>
+            </div>
+
+            <div class="table-container">
+                <h3>Cambiar Contraseña</h3>
+                <form id="changePasswordForm">
+                    <div class="form-group">
+                        <label>Contraseña Actual</label>
+                        <input type="password" id="currentPassword" required minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label>Nueva Contraseña</label>
+                        <input type="password" id="newPassword" required minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label>Confirmar Nueva Contraseña</label>
+                        <input type="password" id="confirmPassword" required minlength="6">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Cambiar Contraseña</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Configuración y Scripts -->
+    <script src="js/firebase-config.js"></script>
+    <script src="js/auth-utils.js"></script>
+    
+    <script>
+        // ============================================
+        // PROTECCIÓN DE RUTA - SOLO ADMIN
+        // ============================================
+        let currentUserData = null;
+
+        async function initDashboard() {
+            try {
+                // Proteger ruta - solo admin
+                currentUserData = await AuthUtils.protectRoute('admin');
+                
+                if (!currentUserData) {
+                    return; // Ya redirigió AuthUtils
+                }
+
+                // Cargar información del usuario
+                document.getElementById('userName').textContent = currentUserData.fullName;
+                document.getElementById('userEmail').textContent = currentUserData.email;
+
+                // Cargar datos del dashboard
+                await loadDashboardData();
+
+                // Ocultar loader
+                document.getElementById('pageLoader').classList.add('hidden');
+
+            } catch (error) {
+                console.error('Error al inicializar dashboard:', error);
+                showAlert('danger', 'Error al cargar el dashboard');
+                
+                // Redirigir a login en caso de error
+                setTimeout(() => {
+                    window.location.href = 'login.html';
+                }, 2000);
+            }
+        }
+
+        // ============================================
+        // CARGAR DATOS DEL DASHBOARD
+        // ============================================
+        async function loadDashboardData() {
+            try {
+                // Cargar estadísticas
+                await Promise.all([
+                    loadVentasStats(),
+                    loadProductosStats(),
+                    loadClientesStats(),
+                    loadUsuariosStats()
+                ]);
+
+                // Cargar ventas recientes
+                await loadRecentSales();
+
+            } catch (error) {
+                console.error('Error al cargar datos:', error);
+                showAlert('danger', 'Error al cargar algunos datos del dashboard');
+            }
+        }
+
+        async function loadVentasStats() {
+            try {
+                const snapshot = await db.collection('ventas').get();
+                document.getElementById('totalVentas').textContent = snapshot.size;
+            } catch (error) {
+                console.error('Error al cargar ventas:', error);
+                document.getElementById('totalVentas').textContent = '0';
+            }
+        }
+
+        async function loadProductosStats() {
+            try {
+                const snapshot = await db.collection('productos').get();
+                document.getElementById('totalProductos').textContent = snapshot.size;
+            } catch (error) {
+                console.error('Error al cargar productos:', error);
+                document.getElementById('totalProductos').textContent = '0';
+            }
+        }
+
+        async function loadClientesStats() {
+            try {
+                const snapshot = await db.collection('users')
+                    .where('role', '==', 'client')
+                    .get();
+                document.getElementById('totalClientes').textContent = snapshot.size;
+            } catch (error) {
+                console.error('Error al cargar clientes:', error);
+                document.getElementById('totalClientes').textContent = '0';
+            }
+        }
+
+        async function loadUsuariosStats() {
+            try {
+                const snapshot = await db.collection('users').get();
+                document.getElementById('totalUsuarios').textContent = snapshot.size;
+            } catch (error) {
+                console.error('Error al cargar usuarios:', error);
+                document.getElementById('totalUsuarios').textContent = '0';
+            }
+        }
+
+        async function loadRecentSales() {
+            try {
+                const snapshot = await db.collection('ventas')
+                    .orderBy('fecha', 'desc')
+                    .limit(10)
+                    .get();
+
+                const tbody = document.getElementById('recentSalesBody');
+                
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No hay ventas registradas</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = '';
+                snapshot.forEach(doc => {
+                    const venta = doc.data();
+                    const row = `
+                        <tr>
+                            <td>${AuthUtils.formatFirestoreDate(venta.fecha)}</td>
+                            <td>${venta.cliente || 'N/A'}</td>
+                            <td>${venta.producto || 'N/A'}</td>
+                            <td>${venta.cantidad || 0}</td>
+                            <td>S/ ${(venta.total || 0).toFixed(2)}</td>
+                            <td><span class="badge badge-success">Completada</span></td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                });
+
+            } catch (error) {
+                console.error('Error al cargar ventas recientes:', error);
+                document.getElementById('recentSalesBody').innerHTML = 
+                    '<tr><td colspan="6" style="text-align: center;">Error al cargar ventas</td></tr>';
+            }
+        }
+
+        // ============================================
+        // CARGAR CLIENTES
+        // ============================================
+        async function loadClientes() {
+            try {
+                const clientes = await AuthUtils.listClients();
+                const tbody = document.getElementById('clientesTableBody');
+                
+                if (clientes.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No hay clientes registrados</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = clientes.map(cliente => `
+                    <tr>
+                        <td><strong>${cliente.fullName}</strong></td>
+                        <td>${cliente.email}</td>
+                        <td>${cliente.phone || 'N/A'}</td>
+                        <td>0</td>
+                        <td><span class="badge ${cliente.active ? 'badge-success' : 'badge-danger'}">
+                            ${cliente.active ? 'Activo' : 'Inactivo'}
+                        </span></td>
+                        <td>
+                            <button class="btn btn-primary" onclick="viewClientDetails('${cliente.uid}')">
+                                Ver Detalles
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+
+            } catch (error) {
+                console.error('Error al cargar clientes:', error);
+                showAlert('danger', 'Error al cargar clientes');
+            }
+        }
+
+        // ============================================
+        // CARGAR USUARIOS
+        // ============================================
+        async function loadUsuarios() {
+            try {
+                const snapshot = await db.collection('users').get();
+                const tbody = document.getElementById('usuariosTableBody');
+                
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No hay usuarios registrados</td></tr>';
+                    return;
+                }
+
+                let admins = 0;
+                let clientes = 0;
+                let html = '';
+
+                snapshot.forEach(doc => {
+                    const user = doc.data();
+                    
+                    if (user.role === 'admin') admins++;
+                    else if (user.role === 'client') clientes++;
+
+                    html += `
+                        <tr>
+                            <td><strong>${user.fullName}</strong></td>
+                            <td>${user.email}</td>
+                            <td><span class="badge ${user.role === 'admin' ? 'badge-danger' : 'badge-info'}">
+                                ${user.role === 'admin' ? 'Admin' : 'Cliente'}
+                            </span></td>
+                            <td><span class="badge ${user.active ? 'badge-success' : 'badge-danger'}">
+                                ${user.active ? 'Activo' : 'Inactivo'}
+                            </span></td>
+                            <td>${AuthUtils.formatFirestoreDate(user.createdAt)}</td>
+                            <td>
+                                <button class="btn btn-${user.active ? 'danger' : 'success'}" 
+                                        onclick="toggleUserStatus('${user.uid}', ${user.active})">
+                                    ${user.active ? 'Desactivar' : 'Activar'}
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                tbody.innerHTML = html;
+
+                // Actualizar stats
+                document.getElementById('statsUsuariosTotal').textContent = snapshot.size;
+                document.getElementById('statsUsuariosAdmin').textContent = admins;
+                document.getElementById('statsUsuariosClientes').textContent = clientes;
+
+            } catch (error) {
+                console.error('Error al cargar usuarios:', error);
+                showAlert('danger', 'Error al cargar usuarios');
+            }
+        }
+
+        async function toggleUserStatus(userId, currentStatus) {
+            try {
+                const newStatus = !currentStatus;
+                await AuthUtils.toggleUserStatus(userId, newStatus);
+                showAlert('success', `Usuario ${newStatus ? 'activado' : 'desactivado'} exitosamente`);
+                await loadUsuarios();
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('danger', error.message);
+            }
+        }
+
+        // ============================================
+        // NAVEGACIÓN
+        // ============================================
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', async function() {
+                const section = this.dataset.section;
+                
+                // Actualizar nav
+                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Mostrar sección
+                document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+                document.getElementById(section + '-section').classList.add('active');
+
+                // Cargar datos según sección
+                if (section === 'clientes') {
+                    await loadClientes();
+                } else if (section === 'usuarios') {
+                    await loadUsuarios();
+                }
+            });
+        });
+
+        // ============================================
+        // LOGOUT
+        // ============================================
+        document.getElementById('logoutBtn').addEventListener('click', async function() {
+            if (confirm('¿Cerrar sesión?')) {
+                await AuthUtils.logout();
+            }
+        });
+
+        // ============================================
+        // CAMBIAR CONTRASEÑA
+        // ============================================
+        document.getElementById('changePasswordForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const currentPass = document.getElementById('currentPassword').value;
+            const newPass = document.getElementById('newPassword').value;
+            const confirmPass = document.getElementById('confirmPassword').value;
+
+            if (newPass !== confirmPass) {
+                showAlert('danger', 'Las contraseñas no coinciden');
+                return;
+            }
+
+            try {
+                await AuthUtils.changePassword(currentPass, newPass);
+                showAlert('success', 'Contraseña cambiada exitosamente');
+                this.reset();
+            } catch (error) {
+                showAlert('danger', error.message);
+            }
+        });
+
+        // ============================================
+        // UTILIDADES
+        // ============================================
+        function showAlert(type, message) {
+            const alert = document.getElementById('alert' + (type === 'success' ? 'Success' : 'Danger'));
+            alert.textContent = message;
+            alert.classList.add('show');
+            setTimeout(() => alert.classList.remove('show'), 5000);
+        }
+
+        function viewClientDetails(clientId) {
+            alert('Ver detalles del cliente: ' + clientId);
+            // Aquí puedes implementar un modal o redirección
+        }
+
+        // ============================================
+        // INICIALIZAR
+        // ============================================
+        window.addEventListener('DOMContentLoaded', initDashboard);
+    </script>
+</body>
+</html>

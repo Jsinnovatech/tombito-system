@@ -1,0 +1,144 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================
+    // FUNCIONES AUXILIARES
+    // ============================================
+    
+    // Verificar si el usuario está autenticado
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Verificar si es el propietario del documento
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    // Verificar si el usuario es admin
+    function isAdmin() {
+      return isSignedIn() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Verificar si el usuario es cliente
+    function isClient() {
+      return isSignedIn() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'client';
+    }
+    
+    // ============================================
+    // COLECCIÓN: USERS
+    // ============================================
+    match /users/{userId} {
+      // Leer: el propio usuario o admin
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Crear: solo durante el registro (rol cliente por defecto)
+      allow create: if isSignedIn() && 
+                      request.auth.uid == userId &&
+                      request.resource.data.role == 'client' &&
+                      request.resource.data.uid == userId;
+      
+      // Actualizar: el propio usuario puede actualizar su info (excepto rol)
+      // Admin puede actualizar todo
+      allow update: if (isOwner(userId) && 
+                       request.resource.data.role == resource.data.role) ||
+                       isAdmin();
+      
+      // Eliminar: solo admin
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // COLECCIÓN: VENTAS
+    // ============================================
+    match /ventas/{ventaId} {
+      // Leer: admin puede ver todas, cliente solo las suyas
+      allow read: if isAdmin() || 
+                     (isClient() && resource.data.clienteId == request.auth.uid);
+      
+      // Crear: solo admin
+      allow create: if isAdmin();
+      
+      // Actualizar: solo admin
+      allow update: if isAdmin();
+      
+      // Eliminar: solo admin
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // COLECCIÓN: PRODUCTOS
+    // ============================================
+    match /productos/{productoId} {
+      // Leer: todos los usuarios autenticados
+      allow read: if isSignedIn();
+      
+      // Crear: solo admin
+      allow create: if isAdmin();
+      
+      // Actualizar: solo admin
+      allow update: if isAdmin();
+      
+      // Eliminar: solo admin
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // COLECCIÓN: COMPRAS
+    // ============================================
+    match /compras/{compraId} {
+      // Leer y escribir: solo admin
+      allow read, write: if isAdmin();
+    }
+    
+    // ============================================
+    // COLECCIÓN: EGRESOS
+    // ============================================
+    match /egresos/{egresoId} {
+      // Leer y escribir: solo admin
+      allow read, write: if isAdmin();
+    }
+    
+    // ============================================
+    // COLECCIÓN: PERSONAL
+    // ============================================
+    match /personal/{personalId} {
+      // Leer y escribir: solo admin
+      allow read, write: if isAdmin();
+    }
+    
+    // ============================================
+    // COLECCIÓN: CLIENTES
+    // ============================================
+    match /clientes/{clienteId} {
+      // Leer: admin o el propio cliente
+      allow read: if isAdmin() || 
+                     (isClient() && resource.data.userId == request.auth.uid);
+      
+      // Escribir: solo admin
+      allow write: if isAdmin();
+    }
+    
+    // ============================================
+    // COLECCIÓN: CONFIGURACION (Settings del sistema)
+    // ============================================
+    match /configuracion/{configId} {
+      // Leer: usuarios autenticados
+      allow read: if isSignedIn();
+      
+      // Escribir: solo admin
+      allow write: if isAdmin();
+    }
+    
+    // ============================================
+    // REGLA POR DEFECTO
+    // Cualquier otra colección: solo admin
+    // ============================================
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
