@@ -4,12 +4,12 @@
 
 // Configuración de Firebase - PROYECTO TOMBITO
 const firebaseConfig = {
-    apiKey: "AIza5y85UIDAfqGEzgurbg1kZxZyXBZnF4k4ANA",
+    apiKey: "AIzaSyBSUID4fqoEzqurbpikZxZyKBZnF4kA4NA",
     authDomain: "tombito-aed2c.firebaseapp.com",
     projectId: "tombito-aed2c",
     storageBucket: "tombito-aed2c.firebasestorage.app",
     messagingSenderId: "42188990440",
-    appId: "1:42188990440:web:601996787e2789580v2654"
+    appId: "1:42188990440:web:601996787e2789589c265d"
 };
 
 // Inicializar Firebase
