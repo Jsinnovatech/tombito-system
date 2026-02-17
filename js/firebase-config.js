@@ -1,8 +1,7 @@
 // ============================================
-// TOMBITO - Firebase Configuration
+// TOMBITO - Firebase Configuration FINAL
 // ============================================
 
-// Configuración de Firebase - PROYECTO TOMBITO
 const firebaseConfig = {
     apiKey: "AIzaSyBSUID4fqoEzqurbpikZxZyKBZnF4kA4NA",
     authDomain: "tombito-aed2c.firebaseapp.com",
@@ -15,134 +14,67 @@ const firebaseConfig = {
 // Inicializar Firebase
 firebase.initializeApp(firebaseConfig);
 
-// Referencias a los servicios
+// Referencias globales a los servicios
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Configurar persistencia de sesión
-auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-    .catch((error) => {
-        console.error('Error al configurar persistencia:', error);
-    });
-
-// Roles de usuario
+// Roles disponibles
 const USER_ROLES = {
     ADMIN: 'admin',
     CLIENT: 'client'
 };
 
-// Verificar estado de autenticación
-auth.onAuthStateChanged((user) => {
-    if (user) {
-        console.log('Usuario autenticado:', user.email);
-        
-        // Verificar rol y redirigir si estamos en páginas de auth
-        const currentPage = window.location.pathname;
-        if (currentPage.includes('login.html') || currentPage.includes('register.html')) {
-            checkUserRoleAndRedirect(user.uid);
-        }
-    } else {
-        console.log('No hay usuario autenticado');
-        
-        // Redirigir a login si no está en páginas públicas
-        const publicPages = ['login.html', 'register.html', 'forgot-password.html', 'index.html'];
-        const currentPage = window.location.pathname;
-        const isPublicPage = publicPages.some(page => currentPage.includes(page));
-        
-        if (!isPublicPage && currentPage !== '/') {
-            window.location.href = 'login.html';
-        }
-    }
-});
+// Persistencia de sesión LOCAL (sobrevive al cerrar el navegador)
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+    .catch((error) => console.error('Error persistencia:', error));
 
-// Función para verificar rol y redirigir
+// ============================================
+// FUNCIÓN GLOBAL: Buscar usuario y redirigir
+// Usada por dashboards para proteger rutas
+// ============================================
 async function checkUserRoleAndRedirect(userId) {
     try {
+        console.log('🔍 Buscando usuario en Firestore. UID:', userId);
         const userDoc = await db.collection('users').doc(userId).get();
-        
+
         if (userDoc.exists) {
             const userData = userDoc.data();
-            const role = userData.role;
-            
-            // Redirigir según el rol
-            if (role === USER_ROLES.ADMIN) {
+            console.log('✅ Usuario encontrado. Rol:', userData.role);
+
+            if (userData.role === USER_ROLES.ADMIN) {
                 window.location.href = 'admin-dashboard.html';
-            } else if (role === USER_ROLES.CLIENT) {
-                window.location.href = 'client-dashboard.html';
             } else {
-                console.error('Rol de usuario no válido');
-                await auth.signOut();
+                window.location.href = 'client-dashboard.html';
             }
         } else {
-            console.error('Documento de usuario no encontrado');
+            console.error('❌ No existe documento para UID:', userId);
             await auth.signOut();
+            window.location.href = 'login.html';
         }
     } catch (error) {
-        console.error('Error al verificar rol:', error);
-        showError('Error al verificar permisos de usuario');
-    }
-}
-
-// Función para obtener datos del usuario actual
-async function getCurrentUserData() {
-    const user = auth.currentUser;
-    
-    if (!user) {
-        throw new Error('No hay usuario autenticado');
-    }
-    
-    const userDoc = await db.collection('users').doc(user.uid).get();
-    
-    if (!userDoc.exists) {
-        throw new Error('Datos de usuario no encontrados');
-    }
-    
-    return {
-        uid: user.uid,
-        email: user.email,
-        ...userDoc.data()
-    };
-}
-
-// Función para verificar si el usuario es admin
-async function isAdmin() {
-    try {
-        const userData = await getCurrentUserData();
-        return userData.role === USER_ROLES.ADMIN;
-    } catch (error) {
-        console.error('Error al verificar rol de admin:', error);
-        return false;
-    }
-}
-
-// Función para cerrar sesión
-async function logout() {
-    try {
+        console.error('Error en checkUserRoleAndRedirect:', error);
         await auth.signOut();
         window.location.href = 'login.html';
-    } catch (error) {
-        console.error('Error al cerrar sesión:', error);
-        showError('Error al cerrar sesión');
     }
 }
 
-// Función auxiliar para mostrar errores
-function showError(message) {
-    // Esta función se puede sobrescribir en cada página
-    console.error(message);
-    alert(message);
+// ============================================
+// PROTECCIÓN DE RUTAS para dashboards
+// Solo se activa en páginas protegidas
+// ============================================
+const currentPath = window.location.pathname;
+const isProtectedPage = currentPath.includes('admin-dashboard') || 
+                        currentPath.includes('client-dashboard');
+
+if (isProtectedPage) {
+    auth.onAuthStateChanged(async (user) => {
+        if (!user) {
+            console.log('No autenticado. Redirigiendo a login...');
+            window.location.href = 'login.html';
+        } else {
+            console.log('✅ Usuario autenticado en página protegida:', user.email);
+        }
+    });
 }
 
-// Exportar para uso global
-window.firebaseApp = {
-    auth,
-    db,
-    USER_ROLES,
-    getCurrentUserData,
-    isAdmin,
-    logout,
-    checkUserRoleAndRedirect
-};
-
-console.log('Firebase inicializado correctamente para TOMBITO');
-console.log('Proyecto:', firebaseConfig.projectId);
+console.log('✅ Firebase TOMBITO inicializado. Proyecto:', firebaseConfig.projectId);
