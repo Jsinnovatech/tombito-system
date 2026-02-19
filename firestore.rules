@@ -55,11 +55,13 @@ service cloud.firestore {
     // COLECCIÓN: VENTAS
     // ============================================
     match /ventas/{ventaId} {
-      // Leer: admin puede ver todas, cliente solo las suyas
+      // Leer: admin puede ver todas, cliente solo las suyas (por nombre normalizado)
       allow read: if isAdmin() || 
-                     (isClient() && resource.data.clienteId == request.auth.uid);
+                     (isClient() && 
+                      resource.data.clienteNombreNormalizado == 
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.fullNameNormalized);
       
-      // Crear: solo admin
+      // Crear: solo admin (para importación)
       allow create: if isAdmin();
       
       // Actualizar: solo admin
