@@ -120,6 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await db.collection('users').doc(user.uid).set({
                 uid: user.uid,
                 fullName: fullName,
+                fullNameNormalized: fullName.toLowerCase(), // Para búsqueda case-insensitive
                 email: email,
                 phone: phone || '',
                 role: USER_ROLES.CLIENT, // Por defecto todos son clientes
