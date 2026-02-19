@@ -119,15 +119,26 @@ class AuthUtils {
     }
 
     /**
-     * Obtener ventas del cliente
+     * Obtener ventas del cliente por nombre normalizado
      */
     static async getClientSales(clientId = null) {
         try {
             const user = await this.waitForAuth();
-            const userId = clientId || user.uid;
+            
+            // Obtener datos del usuario
+            const userDoc = await db.collection('users').doc(user.uid).get();
+            if (!userDoc.exists) {
+                console.error('Usuario no encontrado');
+                return [];
+            }
+            
+            const userData = userDoc.data();
+            const nombreNormalizado = userData.fullNameNormalized || userData.fullName.toLowerCase();
+            
+            console.log('Buscando ventas para:', nombreNormalizado);
 
             const snapshot = await db.collection('ventas')
-                .where('clienteId', '==', userId)
+                .where('clienteNombreNormalizado', '==', nombreNormalizado)
                 .orderBy('fecha', 'desc')
                 .get();
 
@@ -135,7 +146,8 @@ class AuthUtils {
             snapshot.forEach(doc => {
                 sales.push({ id: doc.id, ...doc.data() });
             });
-
+            
+            console.log(`✅ Encontradas ${sales.length} ventas`);
             return sales;
         } catch (error) {
             console.error('Error al obtener ventas:', error);
