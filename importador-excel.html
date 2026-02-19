@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOMBITO - Importador Excel</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 { color: #E31E24; margin-bottom: 10px; }
+        .subtitle { color: #666; margin-bottom: 30px; font-size: 14px; }
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .info-box {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            color: #0c5460;
+        }
+        .upload-area {
+            border: 3px dashed #ddd;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+        .upload-area:hover { border-color: #E31E24; background: #f8f9fa; }
+        .upload-area input { display: none; }
+        .upload-label {
+            display: inline-block;
+            background: #E31E24;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .upload-label:hover { background: #c41a1f; }
+        .btn {
+            background: #E31E24;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+        }
+        .btn:hover { background: #c41a1f; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .progress-section { display: none; margin-top: 20px; }
+        .progress-section.show { display: block; }
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #f0f0f0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #E31E24 0%, #c41a1f 100%);
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-item { padding: 3px 0; }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #17a2b8; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-box h3 { font-size: 32px; color: #E31E24; margin-bottom: 5px; }
+        .stat-box p { font-size: 12px; color: #666; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📤 TOMBITO - Importador de Datos</h1>
+        <p class="subtitle">Importa ventas, productos, compras y egresos desde Excel</p>
+
+        <div class="info-box">
+            <strong>ℹ️ CÓMO FUNCIONA:</strong><br>
+            • Los clientes se registrarán ellos mismos en la app<br>
+            • Cuando se registren, el sistema buscará su nombre en las ventas<br>
+            • Solo verán SUS ventas asociadas a su nombre<br>
+            • NO se crean usuarios automáticamente
+        </div>
+
+        <div class="warning">
+            <strong>⚠️ IMPORTANTE:</strong><br>
+            • Este proceso puede tardar varios minutos<br>
+            • Se importarán: VENTAS, PRODUCTOS, COMPRAS, EGRESOS<br>
+            • Solo ejecuta esto UNA VEZ
+        </div>
+
+        <!-- UPLOAD AREA -->
+        <div class="upload-area" id="uploadArea">
+            <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFileSelect(event)">
+            <label for="fileInput" class="upload-label">
+                📁 Seleccionar TIENDA_CHALO_2026.xlsx
+            </label>
+            <p id="fileName" style="margin-top: 15px; color: #666;"></p>
+        </div>
+
+        <!-- STATS -->
+        <div class="stats-grid" id="statsGrid" style="display: none;">
+            <div class="stat-box">
+                <h3 id="statVentas">0</h3>
+                <p>Ventas</p>
+            </div>
+            <div class="stat-box">
+                <h3 id="statProductos">0</h3>
+                <p>Productos</p>
+            </div>
+            <div class="stat-box">
+                <h3 id="statCompras">0</h3>
+                <p>Compras</p>
+            </div>
+            <div class="stat-box">
+                <h3 id="statClientes">0</h3>
+                <p>Clientes Únicos</p>
+            </div>
+        </div>
+
+        <!-- IMPORT BUTTON -->
+        <button class="btn" id="importBtn" onclick="iniciarImportacion()" disabled>
+            🚀 Iniciar Importación
+        </button>
+
+        <!-- PROGRESS -->
+        <div class="progress-section" id="progressSection">
+            <h3>Progreso</h3>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill">0%</div>
+            </div>
+            <p id="progressText" style="text-align: center; margin-top: 10px;"></p>
+        </div>
+
+        <!-- LOG -->
+        <div class="log" id="log">
+            <div class="info">Esperando archivo Excel...</div>
+        </div>
+    </div>
+
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
+
+    <script>
+        let excelData = null;
+
+        function log(msg, tipo = 'info') {
+            const logDiv = document.getElementById('log');
+            const item = document.createElement('div');
+            item.className = `log-item ${tipo}`;
+            item.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logDiv.appendChild(item);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateProgress(percent, text) {
+            document.getElementById('progressFill').style.width = percent + '%';
+            document.getElementById('progressFill').textContent = Math.round(percent) + '%';
+            document.getElementById('progressText').textContent = text;
+        }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('fileName').textContent = `✅ ${file.name}`;
+            log(`Leyendo archivo: ${file.name}`, 'info');
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    excelData = {};
+                    
+                    // Leer hojas específicas
+                    ['VENTAS', 'PRODUCTOS', 'COMPRAS', 'EGRESOS'].forEach(sheetName => {
+                        if (workbook.Sheets[sheetName]) {
+                            excelData[sheetName] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+                            log(`✓ Hoja ${sheetName}: ${excelData[sheetName].length} filas`, 'success');
+                        }
+                    });
+
+                    // Mostrar stats
+                    document.getElementById('statsGrid').style.display = 'grid';
+                    document.getElementById('statVentas').textContent = excelData.VENTAS?.length || 0;
+                    document.getElementById('statProductos').textContent = excelData.PRODUCTOS?.length || 0;
+                    document.getElementById('statCompras').textContent = excelData.COMPRAS?.length || 0;
+                    
+                    // Contar clientes únicos en ventas
+                    const clientesUnicos = new Set();
+                    if (excelData.VENTAS) {
+                        excelData.VENTAS.forEach(v => {
+                            if (v.PERSONA) clientesUnicos.add(v.PERSONA);
+                        });
+                    }
+                    document.getElementById('statClientes').textContent = clientesUnicos.size;
+
+                    document.getElementById('importBtn').disabled = false;
+                    log('✅ Archivo procesado. Listo para importar!', 'success');
+
+                } catch (error) {
+                    log(`❌ Error al leer archivo: ${error.message}`, 'error');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        async function iniciarImportacion() {
+            if (!excelData) {
+                log('❌ No hay datos para importar', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('importBtn');
+            btn.disabled = true;
+            btn.textContent = 'Importando...';
+            document.getElementById('progressSection').classList.add('show');
+
+            try {
+                // PASO 1: Importar productos (25%)
+                await importarProductos();
+                updateProgress(25, 'Productos importados');
+
+                // PASO 2: Importar ventas (65%)
+                await importarVentas();
+                updateProgress(65, 'Ventas importadas');
+
+                // PASO 3: Importar compras (85%)
+                await importarCompras();
+                updateProgress(85, 'Compras importadas');
+
+                // PASO 4: Importar egresos (100%)
+                await importarEgresos();
+                updateProgress(100, '✅ Importación completada!');
+
+                log('🎉 ¡IMPORTACIÓN COMPLETADA!', 'success');
+                log('Los clientes se registrarán y verán sus ventas automáticamente', 'info');
+                btn.textContent = '✅ Completado';
+                
+                setTimeout(() => {
+                    if (confirm('¿Ir al dashboard admin?')) {
+                        window.location.href = 'admin-dashboard.html';
+                    }
+                }, 2000);
+
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                btn.disabled = false;
+                btn.textContent = 'Reintentar';
+            }
+        }
+
+        async function importarProductos() {
+            if (!excelData.PRODUCTOS) return;
+            
+            log('Importando productos...', 'info');
+            let count = 0;
+
+            for (const prod of excelData.PRODUCTOS) {
+                if (!prod['NOMBRE DEL PRODUCTO']) continue;
+
+                try {
+                    await db.collection('productos').add({
+                        nombre: prod['NOMBRE DEL PRODUCTO'],
+                        precio: parseFloat(prod.PRECIO) || 0,
+                        stock: parseInt(prod['Stock Actual']) || 0,
+                        categoria: 'General',
+                        activo: true,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    count++;
+                    if (count % 10 === 0) log(`${count} productos...`, 'info');
+                } catch (error) {
+                    log(`Error: ${error.message}`, 'error');
+                }
+            }
+
+            log(`✅ ${count} productos importados`, 'success');
+        }
+
+        async function importarVentas() {
+            if (!excelData.VENTAS) return;
+            
+            log('Importando ventas (esto tardará varios minutos)...', 'info');
+            let count = 0;
+            const batchSize = 100;
+
+            for (let i = 0; i < excelData.VENTAS.length; i += batchSize) {
+                const batch = excelData.VENTAS.slice(i, i + batchSize);
+                
+                await Promise.all(batch.map(async (venta) => {
+                    if (!venta.PERSONA || !venta.PRODUCTO) return;
+
+                    try {
+                        let fecha;
+                        if (venta.FECHA) {
+                            // Excel guarda fechas como números
+                            if (typeof venta.FECHA === 'number') {
+                                // Convertir número de Excel a fecha
+                                const excelEpoch = new Date(1899, 11, 30);
+                                fecha = new Date(excelEpoch.getTime() + venta.FECHA * 86400000);
+                            } else {
+                                fecha = new Date(venta.FECHA);
+                            }
+                        } else {
+                            fecha = new Date();
+                        }
+                        
+                        await db.collection('ventas').add({
+                            clienteNombre: venta.PERSONA.trim(),
+                            clienteNombreNormalizado: venta.PERSONA.trim().toLowerCase(), // Para búsqueda case-insensitive
+                            producto: venta.PRODUCTO,
+                            cantidad: parseInt(venta.CANTIDAD) || 1,
+                            precioUnitario: parseFloat(venta.PRECIO) || 0,
+                            total: parseFloat(venta.TOTAL) || 0,
+                            fecha: firebase.firestore.Timestamp.fromDate(fecha),
+                            mes: venta.MES || '',
+                            estado: 'completada',
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        count++;
+                    } catch (error) {
+                        // Silent error para no saturar log
+                    }
+                }));
+
+                log(`${count} / ${excelData.VENTAS.length} ventas...`, 'info');
+                const progress = 25 + (count / excelData.VENTAS.length) * 40;
+                updateProgress(progress, `${count} ventas importadas`);
+            }
+
+            log(`✅ ${count} ventas importadas`, 'success');
+        }
+
+        async function importarCompras() {
+            if (!excelData.COMPRAS) return;
+            
+            log('Importando compras...', 'info');
+            let count = 0;
+
+            for (const compra of excelData.COMPRAS) {
+                if (!compra.PRODUCTO) continue;
+
+                try {
+                    let fecha;
+                    if (compra.FECHA) {
+                        if (typeof compra.FECHA === 'number') {
+                            const excelEpoch = new Date(1899, 11, 30);
+                            fecha = new Date(excelEpoch.getTime() + compra.FECHA * 86400000);
+                        } else {
+                            fecha = new Date(compra.FECHA);
+                        }
+                    } else {
+                        fecha = new Date();
+                    }
+                    
+                    await db.collection('compras').add({
+                        producto: compra.PRODUCTO,
+                        cantidad: parseInt(compra.CANTIDAD_COMPRADA) || 0,
+                        paquetes: parseInt(compra.PAQUETE) || 0,
+                        precioTotal: parseFloat(compra['PRECIO TOTAL']) || 0,
+                        precioPaquete: parseFloat(compra['PRECIO POR PAQUETE']) || 0,
+                        fecha: firebase.firestore.Timestamp.fromDate(fecha),
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    count++;
+                    if (count % 20 === 0) log(`${count} compras...`, 'info');
+                } catch (error) {
+                    // Silent
+                }
+            }
+
+            log(`✅ ${count} compras importadas`, 'success');
+        }
+
+        async function importarEgresos() {
+            if (!excelData.EGRESOS) return;
+            
+            log('Importando egresos...', 'info');
+            let count = 0;
+
+            for (const egreso of excelData.EGRESOS) {
+                if (!egreso.TIPO_EGRESO && !egreso.MONTO) continue;
+
+                try {
+                    let fecha;
+                    if (egreso.FECHA) {
+                        if (typeof egreso.FECHA === 'number') {
+                            const excelEpoch = new Date(1899, 11, 30);
+                            fecha = new Date(excelEpoch.getTime() + egreso.FECHA * 86400000);
+                        } else {
+                            fecha = new Date(egreso.FECHA);
+                        }
+                    } else {
+                        fecha = new Date();
+                    }
+                    
+                    await db.collection('egresos').add({
+                        tipo: egreso.TIPO_EGRESO || 'Sin especificar',
+                        descripcion: egreso['DESCRIPCIÓN'] || '',
+                        monto: parseFloat(egreso.MONTO) || 0,
+                        responsable: egreso.RESPONSABLE || '',
+                        observacion: egreso['OBSERVACIÓN'] || '',
+                        fecha: firebase.firestore.Timestamp.fromDate(fecha),
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    count++;
+                } catch (error) {
+                    // Silent
+                }
+            }
+
+            log(`✅ ${count} egresos importados`, 'success');
+        }
+    </script>
+</body>
+</html>
