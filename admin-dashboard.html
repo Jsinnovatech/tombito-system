@@ -699,7 +699,7 @@
                     const row = `
                         <tr>
                             <td>${AuthUtils.formatFirestoreDate(venta.fecha)}</td>
-                            <td>${venta.cliente || 'N/A'}</td>
+                            <td>${venta.clienteNombre || venta.cliente || 'N/A'}</td>
                             <td>${venta.producto || 'N/A'}</td>
                             <td>${venta.cantidad || 0}</td>
                             <td>S/ ${(venta.total || 0).toFixed(2)}</td>
